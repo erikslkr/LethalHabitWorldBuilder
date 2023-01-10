@@ -21,6 +21,10 @@ public final class Camera {
         this(new Point(xPosition, yPosition), speed);
     }
     
+    public Camera(Camera other) {
+        this(other.position, other.speed);
+    }
+    
     public void setPosition(Point position) {
         this.position = position;
     }

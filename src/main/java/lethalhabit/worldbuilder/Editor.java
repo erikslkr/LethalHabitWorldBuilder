@@ -7,7 +7,7 @@ import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.border.MatteBorder;
 import javax.swing.event.MouseInputAdapter;
-import javax.swing.text.*;
+import javax.swing.text.PlainDocument;
 import java.awt.*;
 import java.awt.event.*;
 import java.awt.image.BufferedImage;
@@ -32,6 +32,8 @@ public class Editor extends JFrame {
     private int importedWorldOffsetX = 0;
     private int importedWorldOffsetY = 0;
     
+    private boolean inferOrientation = true;
+    
     public Editor() {
         loadTilemap();
         loadLiquidTilemap();
@@ -51,6 +53,30 @@ public class Editor extends JFrame {
         addKeyListener(new KeyAdapter() {
             public void keyPressed(KeyEvent e) {
                 switch (e.getKeyCode()) {
+                    case KeyEvent.VK_K -> {
+                        // toggle toolbar
+                        toolbar.setVisible(!toolbar.isVisible());
+                        if (toolbar.isVisible()) {
+                            add(toolbar, BorderLayout.PAGE_START);
+                        } else {
+                            remove(toolbar);
+                        }
+                        revalidate();
+                    }
+                    case KeyEvent.VK_L -> {
+                        // toggle sidebar
+                        sidebar.setVisible(!sidebar.isVisible());
+                        if (sidebar.isVisible()) {
+                            add(sidebar, BorderLayout.LINE_END);
+                        } else {
+                            remove(sidebar);
+                        }
+                        revalidate();
+                    }
+                    case KeyEvent.VK_P -> {
+                        // toggle orientation inferring mode
+                        inferOrientation = !inferOrientation;
+                    }
                     case KeyEvent.VK_RIGHT -> {
                         // move imported world right
                         if (importedWorldData != null) {
@@ -339,10 +365,7 @@ public class Editor extends JFrame {
             });
             addMouseListener(new MouseInputAdapter() {
                 public void mousePressed(MouseEvent e) {
-                    Map<Integer, Map<Integer, Tile>> currentWorld = copyWorldData(WorldBuilder.INSTANCE.getWorldData());
-                    if (recentWorldStates.isEmpty() || !currentWorld.equals(recentWorldStates.peek())) {
-                        recentWorldStates.push(currentWorld);
-                    }
+                    addUndoCheckpoint();
                     activeMouseButton = e.getButton();
                 }
                 
@@ -501,6 +524,9 @@ public class Editor extends JFrame {
                             column.put(chunkY, new Tile(current == null ? -1 : current.block, sidebar.selection));
                             WorldBuilder.INSTANCE.getWorldData().put(chunkX, column);
                         }
+                        if (inferOrientation) {
+                            WorldBuilder.INSTANCE.updateChunk(chunkX, chunkY, false);
+                        }
                     }
                     case 2 -> { // middle click
                         Map<Integer, Tile> column = WorldBuilder.INSTANCE.getWorldData().get(chunkX);
@@ -528,6 +554,9 @@ public class Editor extends JFrame {
                                 WorldBuilder.INSTANCE.getWorldData().put(chunkX, column);
                             }
                         }
+                        if (inferOrientation) {
+                            WorldBuilder.INSTANCE.updateChunk(chunkX, chunkY, false);
+                        }
                     }
                 }
             }
@@ -553,10 +582,17 @@ public class Editor extends JFrame {
                 }
             }
         }
+    
+        private void addUndoCheckpoint() {
+            Map<Integer, Map<Integer, Tile>> currentWorld = copyWorldData(WorldBuilder.INSTANCE.getWorldData());
+            if (recentWorldStates.isEmpty() || !currentWorld.equals(recentWorldStates.peek())) {
+                recentWorldStates.push(currentWorld);
+            }
+        }
         
     }
     
-    public static abstract class Toolbar extends JScrollPane {
+    public abstract class Toolbar extends JScrollPane {
         
         public static final int MARGIN = 15;
         
@@ -585,7 +621,7 @@ public class Editor extends JFrame {
             }
         }
         
-        public static class ToolbarElement extends JLabel {
+        public class ToolbarElement extends JLabel {
             
             private final Toolbar parent;
             private final BufferedImage image;
@@ -616,7 +652,7 @@ public class Editor extends JFrame {
                 super.paint(g);
                 if (selected) {
                     setIcon(new ImageIcon(this.image));
-                    setBorder(new MatteBorder(MARGIN, MARGIN, MARGIN, MARGIN, new Color(0x4287f5)));
+                    setBorder(new MatteBorder(MARGIN, MARGIN, MARGIN, MARGIN, new Color(inferOrientation ? 0xdb2137 : 0x4287f5)));
                 } else {
                     setIcon(new ImageIcon(hovered ? this.image : transparentImage(this.image, 0.35f)));
                     setBorder(new EmptyBorder(MARGIN, MARGIN, MARGIN, MARGIN));

@@ -65,6 +65,76 @@ public final class WorldBuilder {
         }
     }
     
+    private static int getBlockOrientationOffset(int chunkX, int chunkY) {
+        boolean above = WorldBuilder.INSTANCE.getWorldData().get(chunkX).getOrDefault(chunkY - 1, Tile.EMPTY).block < 0;
+        boolean below = WorldBuilder.INSTANCE.getWorldData().get(chunkX).getOrDefault(chunkY + 1, Tile.EMPTY).block < 0;
+        boolean left = WorldBuilder.INSTANCE.getWorldData().getOrDefault(chunkX - 1, new HashMap<>()).getOrDefault(chunkY, Tile.EMPTY).block < 0;
+        boolean right = WorldBuilder.INSTANCE.getWorldData().getOrDefault(chunkX + 1, new HashMap<>()).getOrDefault(chunkY, Tile.EMPTY).block < 0;
+        if (above) {
+            if (below) {
+                if (left) {
+                    return right ? 15 : 12;
+                } else {
+                    return right ? 14 : 13;
+                }
+            } else {
+                if (left) {
+                    return right ? 11 : 8;
+                } else {
+                    return right ? 10 : 9;
+                }
+            }
+        } else {
+            if (below) {
+                if (left) {
+                    return right ? 3 : 4;
+                } else {
+                    return right ? 2 : 5;
+                }
+            } else {
+                if (left) {
+                    return right ? 7 : 6;
+                } else {
+                    return right ? 1 : 0;
+                }
+            }
+        }
+    }
+    
+    private static int getLiquidOrientationOffset(int chunkX, int chunkY) {
+        int above = WorldBuilder.INSTANCE.getWorldData().get(chunkX).getOrDefault(chunkY - 1, Tile.EMPTY).liquid;
+        if (above >= 0) {
+            return 0;
+        } else {
+            return 1;
+        }
+    }
+    
+    public void updateChunk(int chunkX, int chunkY, boolean suppressAdjacentUpdates) {
+        Map<Integer, Tile> column = getWorldData().getOrDefault(chunkX, new HashMap<>());
+        Tile currentTile = new Tile(column.getOrDefault(chunkY, Tile.EMPTY));
+        if (!currentTile.equals(Tile.EMPTY)) {
+            int liquidIndex = -1;
+            int blockIndex = -1;
+            if (currentTile.liquid >= 0) {
+                liquidIndex = (currentTile.liquid / 2) * 2 + getLiquidOrientationOffset(chunkX, chunkY);
+            }
+            if (currentTile.block >= 0) {
+                blockIndex = (currentTile.block / 16) * 16 + getBlockOrientationOffset(chunkX, chunkY);
+            }
+            if (liquidIndex != currentTile.liquid || blockIndex != currentTile.block) {
+                column.put(chunkY, new Tile(blockIndex, liquidIndex));
+                getWorldData().put(chunkX, column);
+            }
+        }
+        if (!suppressAdjacentUpdates) {
+            updateChunk(chunkX + 1, chunkY, true);
+            updateChunk(chunkX - 1, chunkY, true);
+            updateChunk(chunkX, chunkY + 1, true);
+            updateChunk(chunkX, chunkY - 1, true);
+        }
+    }
+    
     public Map<Integer, Map<Integer, Tile>> getWorldData() {
         return worldData;
     }

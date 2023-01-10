@@ -2,12 +2,18 @@ package lethalhabit.worldbuilder;
 
 public final class Tile {
     
+    public static final Tile EMPTY = new Tile(-1, -1);
+    
     public final int block;
     public final int liquid;
     
     public Tile(int block, int liquid) {
         this.block = block;
         this.liquid = liquid;
+    }
+    
+    public Tile(Tile other) {
+        this(other.block, other.liquid);
     }
     
     @Override
