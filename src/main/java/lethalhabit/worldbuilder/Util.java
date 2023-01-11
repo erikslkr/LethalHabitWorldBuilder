@@ -10,8 +10,8 @@ import javax.swing.text.Document;
 import javax.swing.text.DocumentFilter;
 import java.awt.*;
 import java.awt.image.BufferedImage;
-import java.io.File;
-import java.io.IOException;
+import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
@@ -31,9 +31,19 @@ public final class Util {
     }
     
     public static Map<Integer, Map<Integer, Tile>> readWorldData(File worldFile) {
+        try {
+            return readWorldData(new FileInputStream(worldFile));
+        } catch (FileNotFoundException ex) {
+            JOptionPane.showMessageDialog(null, "World data could not be loaded.", "Fatal Error", JOptionPane.ERROR_MESSAGE);
+            System.exit(1);
+            return new HashMap<>();
+        }
+    }
+    
+    public static Map<Integer, Map<Integer, Tile>> readWorldData(InputStream stream) {
         Map<Integer, Map<Integer, Tile>> worldData = new HashMap<>();
         try {
-            String json = Files.readString(Path.of(worldFile.getPath()));
+            String json = new String(stream.readAllBytes(), StandardCharsets.UTF_8);
             Gson gson = new Gson();
             Map<String, Map<String, Map<String, Double>>> strings = gson.fromJson(json, Map.class);
             for (Map.Entry<String, Map<String, Map<String, Double>>> entry : strings.entrySet()) {
