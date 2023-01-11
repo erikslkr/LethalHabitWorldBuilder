@@ -22,11 +22,13 @@ public class Editor extends JFrame {
     
     private final List<BufferedImage> TILEMAP = new ArrayList<>();
     private final List<BufferedImage> LIQUID_TILEMAP = new ArrayList<>();
+    private final List<BufferedImage> INTERACTABLE_TILEMAP = new ArrayList<>();
     private final List<Integer> activeKeys = new ArrayList<>();
     
     private final EditorPane editorPane;
     private final TileToolbar toolbar;
-    private final LiquidToolbar sidebar;
+    private final LiquidToolbar sidebarR;
+    private final InteractableToolbar sidebarL;
     
     private Map<Integer, Map<Integer, Tile>> importedWorldData = null;
     private int importedWorldOffsetX = 0;
@@ -37,6 +39,7 @@ public class Editor extends JFrame {
     public Editor() {
         loadTilemap();
         loadLiquidTilemap();
+        loadInteractableTilemap();
         setTitle("Lethal Habit - World Builder");
         setSize(1300, 800);
         setDefaultCloseOperation(DISPOSE_ON_CLOSE);
@@ -45,10 +48,12 @@ public class Editor extends JFrame {
         setLayout(new BorderLayout());
         editorPane = new EditorPane();
         toolbar = new TileToolbar();
-        sidebar = new LiquidToolbar();
+        sidebarR = new LiquidToolbar();
+        sidebarL = new InteractableToolbar();
         add(editorPane, BorderLayout.CENTER);
         add(toolbar, BorderLayout.PAGE_START);
-        add(sidebar, BorderLayout.LINE_END);
+        add(sidebarR, BorderLayout.LINE_END);
+        add(sidebarL, BorderLayout.LINE_START);
         setVisible(true);
         addKeyListener(new KeyAdapter() {
             public void keyPressed(KeyEvent e) {
@@ -65,11 +70,20 @@ public class Editor extends JFrame {
                     }
                     case KeyEvent.VK_L -> {
                         // toggle sidebar
-                        sidebar.setVisible(!sidebar.isVisible());
-                        if (sidebar.isVisible()) {
-                            add(sidebar, BorderLayout.LINE_END);
+                        sidebarL.setVisible(!sidebarL.isVisible());
+                        if (sidebarL.isVisible()) {
+                            add(sidebarL, BorderLayout.LINE_END);
                         } else {
-                            remove(sidebar);
+                            remove(sidebarL);
+                        }
+                        revalidate();
+                    }
+                    case KeyEvent.VK_O -> {
+                        sidebarR.setVisible(!sidebarR.isVisible());
+                        if (sidebarR.isVisible()) {
+                            add(sidebarR, BorderLayout.LINE_END);
+                        } else {
+                            remove(sidebarR);
                         }
                         revalidate();
                     }
@@ -115,14 +129,17 @@ public class Editor extends JFrame {
                         // toggle toolbar selection
                         toolbar.toggleSelection();
                     }
-                    case KeyEvent.VK_SPACE -> {
-                        // move sidebar selection down
-                        sidebar.prepareSelection();
-                        sidebar.select((sidebar.selection + 1) % LIQUID_TILEMAP.size());
-                    }
                     case KeyEvent.VK_V -> {
                         // toggle sidebar selection
-                        sidebar.toggleSelection();
+                        sidebarR.toggleSelection();
+                    }
+                    case KeyEvent.VK_B -> {
+                        sidebarL.toggleSelection();
+                    }
+                    case KeyEvent.VK_SPACE -> {
+                        // move sidebar selection down
+                        sidebarR.prepareSelection();
+                        sidebarR.select((sidebarR.selection + 1) % LIQUID_TILEMAP.size());
                     }
                     case KeyEvent.VK_G -> {
                         // toggle grid drawing
@@ -218,8 +235,8 @@ public class Editor extends JFrame {
                     }
                     case KeyEvent.VK_NUMPAD1, KeyEvent.VK_NUMPAD2, KeyEvent.VK_NUMPAD3, KeyEvent.VK_NUMPAD4, KeyEvent.VK_NUMPAD5, KeyEvent.VK_NUMPAD6, KeyEvent.VK_NUMPAD7, KeyEvent.VK_NUMPAD8, KeyEvent.VK_NUMPAD9 -> {
                         // select n-th tile
-                        sidebar.prepareSelection();
-                        sidebar.select(e.getKeyCode() - 0x61);
+                        sidebarR.prepareSelection();
+                        sidebarR.select(e.getKeyCode() - 0x61);
                     }
                     case KeyEvent.VK_J -> {
                         // save
@@ -286,6 +303,17 @@ public class Editor extends JFrame {
             try {
                 InputStream stream = getClass().getResourceAsStream("/liquids/liquid" + i + ".png");
                 LIQUID_TILEMAP.add(ImageIO.read(stream));
+            } catch (Exception ex) {
+                break;
+            }
+        }
+    }
+    
+    private void loadInteractableTilemap() {
+        for (int i = 0; ; i++) {
+            try {
+                InputStream stream = getClass().getResourceAsStream("/interactables/interactable" + i + ".png");
+                INTERACTABLE_TILEMAP.add(ImageIO.read(stream));
             } catch (Exception ex) {
                 break;
             }
@@ -408,10 +436,9 @@ public class Editor extends JFrame {
             for (int i = offsetX; i <= WorldBuilder.WIDTH / WorldBuilder.TILE_SIZE + offsetX; i++) {
                 for (int j = offsetY; j <= WorldBuilder.HEIGHT / WorldBuilder.TILE_SIZE + offsetY; j++) {
                     int x = (i + (WorldBuilder.WIDTH / 2) / WorldBuilder.TILE_SIZE + 1) * WorldBuilder.TILE_SIZE - camera.getPosition().x();
-                    int y = (j + (WorldBuilder.HEIGHT / 2) / WorldBuilder.TILE_SIZE + 1) * WorldBuilder.TILE_SIZE - camera.getPosition().y();
-                    boolean hovered = mouseInPane && mousePosition != null && mousePosition.x() >= x && mousePosition.x() <= x + WorldBuilder.TILE_SIZE && mousePosition.y() >= y && mousePosition.y() <= y + WorldBuilder.TILE_SIZE;
-                    BufferedImage blockImage = null;
-                    BufferedImage liquidImage = null;
+                    int y = (j + (WorldBuilder.HEIGHT / 2) / WorldBuilder.TILE_SIZE) * WorldBuilder.TILE_SIZE - camera.getPosition().y();
+                    boolean hovered = mouseInPane && mousePosition != null && mousePosition.x() >= x && mousePosition.x() <= x + WorldBuilder.TILE_SIZE && mousePosition.y() >= y + WorldBuilder.TILE_SIZE && mousePosition.y() <= y + 2 * WorldBuilder.TILE_SIZE;
+                    BufferedImage blockImage = null, liquidImage = null, interactableImage = null;
                     Map<Integer, Tile> column = WorldBuilder.INSTANCE.getWorldData().get(i);
                     if (column != null) {
                         Tile tile = column.get(j);
@@ -422,28 +449,36 @@ public class Editor extends JFrame {
                             if (tile.liquid >= 0) {
                                 liquidImage = LIQUID_TILEMAP.get(tile.liquid);
                             }
+                            if (tile.interactable >= 0) {
+                                interactableImage = INTERACTABLE_TILEMAP.get(tile.interactable);
+                            }
                         }
                     }
                     if (liquidImage != null) {
-                        g.drawImage(liquidImage, x, y - WorldBuilder.TILE_SIZE, null);
+                        g.drawImage(liquidImage, x, y, null);
                     }
                     if (blockImage != null) {
-                        g.drawImage(blockImage, x, y - WorldBuilder.TILE_SIZE, null);
+                        g.drawImage(blockImage, x, y, null);
+                    }
+                    if (interactableImage != null) {
+                        g.drawImage(interactableImage, x, y, null);
                     }
                     if (hovered) {
                         if (toolbar.selection >= 0) {
-                            g.drawImage(transparentImage(TILEMAP.get(toolbar.selection), 0.35f), x, y - WorldBuilder.TILE_SIZE, null);
+                            g.drawImage(transparentImage(TILEMAP.get(toolbar.selection), 0.35f), x, y, null);
                         }
-                        if (sidebar.selection >= 0) {
-                            g.drawImage(transparentImage(LIQUID_TILEMAP.get(sidebar.selection), 0.35f), x, y - WorldBuilder.TILE_SIZE, null);
+                        if (sidebarR.selection >= 0) {
+                            g.drawImage(transparentImage(LIQUID_TILEMAP.get(sidebarR.selection), 0.35f), x, y, null);
+                        }
+                        if (sidebarL.selection >= 0) {
+                            g.drawImage(transparentImage(INTERACTABLE_TILEMAP.get(sidebarL.selection), 0.35f), x, y, null);
                         }
                         chunkX = i;
                         chunkY = j;
                     }
                     if (importedWorldData != null) {
                         // draw imported map
-                        BufferedImage importedTileImage = null;
-                        BufferedImage importedLiquidImage = null;
+                        BufferedImage importedTileImage = null, importedLiquidImage = null, importedInteractableImage = null;
                         Map<Integer, Tile> importedColumn = importedWorldData.get(i - importedWorldOffsetX);
                         if (importedColumn != null) {
                             Tile importedTile = importedColumn.get(j - importedWorldOffsetY);
@@ -454,19 +489,25 @@ public class Editor extends JFrame {
                                 if (importedTile.liquid >= 0) {
                                     importedLiquidImage = LIQUID_TILEMAP.get(importedTile.liquid);
                                 }
+                                if (importedTile.interactable >= 0) {
+                                    importedInteractableImage = INTERACTABLE_TILEMAP.get(importedTile.interactable);
+                                }
                             }
                         }
                         if (importedLiquidImage != null) {
-                            g.drawImage(transparentImage(importedLiquidImage, 0.5f), x, y - WorldBuilder.TILE_SIZE, null);
+                            g.drawImage(transparentImage(importedLiquidImage, 0.5f), x, y, null);
                         }
                         if (importedTileImage != null) {
-                            g.drawImage(transparentImage(importedTileImage, 0.5f), x, y - WorldBuilder.TILE_SIZE, null);
+                            g.drawImage(transparentImage(importedTileImage, 0.5f), x, y, null);
+                        }
+                        if (importedInteractableImage != null) {
+                            g.drawImage(transparentImage(importedInteractableImage, 0.5f), x, y, null);
                         }
                     }
                     if (showTileIndices) {
                         String string = i + " | " + j;
                         int stringX = x + (WorldBuilder.TILE_SIZE - g.getFontMetrics().stringWidth(string)) / 2;
-                        int stringY = y - (WorldBuilder.TILE_SIZE - g.getFontMetrics().getHeight()) / 2;
+                        int stringY = y + WorldBuilder.TILE_SIZE - (WorldBuilder.TILE_SIZE - g.getFontMetrics().getHeight()) / 2;
                         g.setColor(Color.BLUE);
                         g.drawString(i + " | " + j, stringX, stringY);
                     }
@@ -509,21 +550,14 @@ public class Editor extends JFrame {
             if (chunkX >= 0 && chunkY >= 0) {
                 switch (activeMouseButton) {
                     case 1 -> { // left click
-                        if (toolbar.selection >= 0 && sidebar.selection >= 0) {
-                            Map<Integer, Tile> column = WorldBuilder.INSTANCE.getWorldData().getOrDefault(chunkX, new HashMap<>());
-                            column.put(chunkY, new Tile(toolbar.selection, sidebar.selection));
-                            WorldBuilder.INSTANCE.getWorldData().put(chunkX, column);
-                        } else if (toolbar.selection >= 0) {
-                            Map<Integer, Tile> column = WorldBuilder.INSTANCE.getWorldData().getOrDefault(chunkX, new HashMap<>());
-                            Tile current = column.get(chunkY);
-                            column.put(chunkY, new Tile(toolbar.selection, current == null ? -1 : current.liquid));
-                            WorldBuilder.INSTANCE.getWorldData().put(chunkX, column);
-                        } else if (sidebar.selection >= 0) {
-                            Map<Integer, Tile> column = WorldBuilder.INSTANCE.getWorldData().getOrDefault(chunkX, new HashMap<>());
-                            Tile current = column.get(chunkY);
-                            column.put(chunkY, new Tile(current == null ? -1 : current.block, sidebar.selection));
-                            WorldBuilder.INSTANCE.getWorldData().put(chunkX, column);
-                        }
+                        Map<Integer, Tile> column = WorldBuilder.INSTANCE.getWorldData().getOrDefault(chunkX, new HashMap<>());
+                        Tile current = column.get(chunkY);
+                        column.put(chunkY, new Tile(
+                                toolbar.selection >= 0 ? toolbar.selection : (current == null ? -1 : current.block),
+                                sidebarR.selection >= 0 ? sidebarR.selection : (current == null ? -1 : current.liquid),
+                                sidebarL.selection >= 0 ? sidebarL.selection : (current == null ? -1 : current.interactable)
+                        ));
+                        WorldBuilder.INSTANCE.getWorldData().put(chunkX, column);
                         if (inferOrientation) {
                             WorldBuilder.INSTANCE.updateChunk(chunkX, chunkY, false);
                         }
@@ -538,8 +572,8 @@ public class Editor extends JFrame {
                                     toolbar.select(tile.block);
                                 }
                                 if (tile.liquid >= 0) {
-                                    sidebar.prepareSelection();
-                                    sidebar.select(tile.liquid);
+                                    sidebarR.prepareSelection();
+                                    sidebarR.select(tile.liquid);
                                 }
                             }
                         }
@@ -652,7 +686,7 @@ public class Editor extends JFrame {
                 super.paint(g);
                 if (selected) {
                     setIcon(new ImageIcon(this.image));
-                    setBorder(new MatteBorder(MARGIN, MARGIN, MARGIN, MARGIN, new Color(inferOrientation ? 0xdb2137 : 0x4287f5)));
+                    setBorder(new MatteBorder(MARGIN, MARGIN, MARGIN, MARGIN, new Color(!inferOrientation || parent instanceof InteractableToolbar ? 0x4287f5 : 0xdb2137)));
                 } else {
                     setIcon(new ImageIcon(hovered ? this.image : transparentImage(this.image, 0.35f)));
                     setBorder(new EmptyBorder(MARGIN, MARGIN, MARGIN, MARGIN));
@@ -693,6 +727,44 @@ public class Editor extends JFrame {
             setVisible(true);
         }
         
+        @Override
+        public void select(int selection) {
+            this.selection = selection;
+            if (selection >= 0) {
+                JScrollBar scrollBar = getVerticalScrollBar();
+                int min = scrollBar.getMinimum();
+                int max = scrollBar.getMaximum();
+                double ratio = Math.max(0, Math.min(1, (double) selection / ((double) LIQUID_TILEMAP.size() - 1) - 0.2));
+                scrollBar.setValue(min + (int) (ratio * (max - min)));
+            }
+        }
+        
+    }
+    
+    public class InteractableToolbar extends Toolbar {
+        
+        public InteractableToolbar() {
+            JPanel content = new JPanel();
+            content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
+            for (int i = 0; i < INTERACTABLE_TILEMAP.size(); i++) {
+                int index = i;
+                BufferedImage liquidTile = INTERACTABLE_TILEMAP.get(i);
+                ToolbarElement image = new ToolbarElement(this, liquidTile, index);
+                image.addMouseListener(new MouseAdapter() {
+                    public void mousePressed(MouseEvent e) {
+                        prepareSelection();
+                        select(index);
+                    }
+                });
+                image.setVisible(true);
+                content.add(image);
+            }
+            setHorizontalScrollBarPolicy(HORIZONTAL_SCROLLBAR_NEVER);
+            setVerticalScrollBarPolicy(VERTICAL_SCROLLBAR_ALWAYS);
+            setViewportView(content);
+            setVisible(true);
+        }
+    
         @Override
         public void select(int selection) {
             this.selection = selection;

@@ -123,7 +123,7 @@ public final class WorldBuilder {
                 blockIndex = (currentTile.block / 16) * 16 + getBlockOrientationOffset(chunkX, chunkY);
             }
             if (liquidIndex != currentTile.liquid || blockIndex != currentTile.block) {
-                column.put(chunkY, new Tile(blockIndex, liquidIndex));
+                column.put(chunkY, new Tile(blockIndex, liquidIndex, currentTile.interactable));
                 getWorldData().put(chunkX, column);
             }
         }

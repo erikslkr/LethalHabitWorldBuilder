@@ -41,7 +41,11 @@ public final class Util {
                 Map<Integer, Tile> value = new HashMap<>();
                 for (Map.Entry<String, Map<String, Double>> entryInner : entry.getValue().entrySet()) {
                     int keyInner = Integer.parseInt(entryInner.getKey());
-                    Tile valueInner = new Tile(entryInner.getValue().get("block").intValue(), entryInner.getValue().get("liquid").intValue());
+                    Tile valueInner = new Tile(
+                            entryInner.getValue().getOrDefault("block", -1D).intValue(),
+                            entryInner.getValue().getOrDefault("liquid", -1D).intValue(),
+                            entryInner.getValue().getOrDefault("interactable", -1D).intValue()
+                    );
                     value.put(keyInner, valueInner);
                 }
                 worldData.put(key, value);
