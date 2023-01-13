@@ -4,7 +4,6 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
 import javax.swing.*;
-import javax.swing.filechooser.FileFilter;
 import java.awt.*;
 import java.io.File;
 import java.io.IOException;
@@ -110,7 +109,7 @@ public final class WorldBuilder {
         }
     }
     
-    public void updateChunk(int chunkX, int chunkY, boolean suppressAdjacentUpdates) {
+    public void autoShapeChunk(int chunkX, int chunkY, boolean suppressAdjacentUpdates) {
         Map<Integer, Tile> column = getWorldData().getOrDefault(chunkX, new HashMap<>());
         Tile currentTile = new Tile(column.getOrDefault(chunkY, Tile.EMPTY));
         if (!currentTile.equals(Tile.EMPTY)) {
@@ -128,10 +127,10 @@ public final class WorldBuilder {
             }
         }
         if (!suppressAdjacentUpdates) {
-            updateChunk(chunkX + 1, chunkY, true);
-            updateChunk(chunkX - 1, chunkY, true);
-            updateChunk(chunkX, chunkY + 1, true);
-            updateChunk(chunkX, chunkY - 1, true);
+            autoShapeChunk(chunkX + 1, chunkY, true);
+            autoShapeChunk(chunkX - 1, chunkY, true);
+            autoShapeChunk(chunkX, chunkY + 1, true);
+            autoShapeChunk(chunkX, chunkY - 1, true);
         }
     }
     

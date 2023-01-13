@@ -229,14 +229,14 @@ public class Editor extends JFrame {
                         importedWorldOffsetY = 0;
                     }
                     case KeyEvent.VK_1, KeyEvent.VK_2, KeyEvent.VK_3, KeyEvent.VK_4, KeyEvent.VK_5, KeyEvent.VK_6, KeyEvent.VK_7, KeyEvent.VK_8, KeyEvent.VK_9 -> {
-                        // select n-th tile
+                        // select n-th tile group
                         toolbar.prepareSelection();
-                        toolbar.select(e.getKeyCode() - 0x31);
+                        toolbar.select((e.getKeyCode() - 0x31) * 16);
                     }
                     case KeyEvent.VK_NUMPAD1, KeyEvent.VK_NUMPAD2, KeyEvent.VK_NUMPAD3, KeyEvent.VK_NUMPAD4, KeyEvent.VK_NUMPAD5, KeyEvent.VK_NUMPAD6, KeyEvent.VK_NUMPAD7, KeyEvent.VK_NUMPAD8, KeyEvent.VK_NUMPAD9 -> {
-                        // select n-th tile
+                        // select n-th liquid group
                         sidebarR.prepareSelection();
-                        sidebarR.select(e.getKeyCode() - 0x61);
+                        sidebarR.select((e.getKeyCode() - 0x61) * 2);
                     }
                     case KeyEvent.VK_J -> {
                         // save
@@ -559,7 +559,7 @@ public class Editor extends JFrame {
                         ));
                         WorldBuilder.INSTANCE.getWorldData().put(chunkX, column);
                         if (inferOrientation) {
-                            WorldBuilder.INSTANCE.updateChunk(chunkX, chunkY, false);
+                            WorldBuilder.INSTANCE.autoShapeChunk(chunkX, chunkY, false);
                         }
                     }
                     case 2 -> { // middle click
@@ -589,7 +589,7 @@ public class Editor extends JFrame {
                             }
                         }
                         if (inferOrientation) {
-                            WorldBuilder.INSTANCE.updateChunk(chunkX, chunkY, false);
+                            WorldBuilder.INSTANCE.autoShapeChunk(chunkX, chunkY, false);
                         }
                     }
                 }
@@ -729,7 +729,7 @@ public class Editor extends JFrame {
         
         @Override
         public void select(int selection) {
-            this.selection = selection;
+            this.selection = Math.min(LIQUID_TILEMAP.size() - 1, selection);
             if (selection >= 0) {
                 JScrollBar scrollBar = getVerticalScrollBar();
                 int min = scrollBar.getMinimum();
@@ -767,7 +767,7 @@ public class Editor extends JFrame {
     
         @Override
         public void select(int selection) {
-            this.selection = selection;
+            this.selection = Math.min(INTERACTABLE_TILEMAP.size() - 1, selection);
             if (selection >= 0) {
                 JScrollBar scrollBar = getVerticalScrollBar();
                 int min = scrollBar.getMinimum();
@@ -805,7 +805,7 @@ public class Editor extends JFrame {
         
         @Override
         public void select(int selection) {
-            this.selection = selection;
+            this.selection = Math.min(TILEMAP.size() - 1, selection);
             if (selection >= 0) {
                 JScrollBar scrollBar = getHorizontalScrollBar();
                 int min = scrollBar.getMinimum();
