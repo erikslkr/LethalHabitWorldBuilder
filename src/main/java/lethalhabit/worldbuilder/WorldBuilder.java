@@ -21,6 +21,9 @@ public final class WorldBuilder {
     public static final int WIDTH = Toolkit.getDefaultToolkit().getScreenSize().width;
     public static final int HEIGHT = Toolkit.getDefaultToolkit().getScreenSize().height;
     
+    public static final int TILE_GROUP_SIZE = 16;
+    public static final int LIQUID_GROUP_SIZE = 2;
+    
     public static final WorldBuilder INSTANCE = new WorldBuilder();
     
     private Map<Integer, Map<Integer, Tile>> lastSavedWorldData = new HashMap<>();
@@ -116,10 +119,10 @@ public final class WorldBuilder {
             int liquidIndex = -1;
             int blockIndex = -1;
             if (currentTile.liquid >= 0) {
-                liquidIndex = (currentTile.liquid / 2) * 2 + getLiquidOrientationOffset(chunkX, chunkY);
+                liquidIndex = (currentTile.liquid / LIQUID_GROUP_SIZE) * LIQUID_GROUP_SIZE + getLiquidOrientationOffset(chunkX, chunkY);
             }
             if (currentTile.block >= 0) {
-                blockIndex = (currentTile.block / 16) * 16 + getBlockOrientationOffset(chunkX, chunkY);
+                blockIndex = (currentTile.block / TILE_GROUP_SIZE) * TILE_GROUP_SIZE + getBlockOrientationOffset(chunkX, chunkY);
             }
             if (liquidIndex != currentTile.liquid || blockIndex != currentTile.block) {
                 column.put(chunkY, new Tile(blockIndex, liquidIndex, currentTile.interactable));

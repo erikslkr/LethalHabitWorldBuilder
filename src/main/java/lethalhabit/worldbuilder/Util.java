@@ -1,6 +1,7 @@
 package lethalhabit.worldbuilder;
 
 import com.google.gson.Gson;
+import org.imgscalr.Scalr;
 
 import javax.swing.*;
 import javax.swing.filechooser.FileFilter;
@@ -135,6 +136,15 @@ public final class Util {
         g.drawImage(image, 0, 0, image.getWidth(), image.getHeight(), null);
         g.dispose();
         return newImage;
+    }
+    
+    public static void createMinimapWindow(BufferedImage minimap) {
+        Image scaled = Scalr.resize(minimap, WorldBuilder.WIDTH / 2, WorldBuilder.HEIGHT / 2);
+        JLabel content = new JLabel(new ImageIcon(scaled));
+        JFrame frame = new JFrame();
+        frame.setSize(WorldBuilder.WIDTH / 2 + 50, WorldBuilder.HEIGHT / 2 + 50);
+        frame.setContentPane(content);
+        frame.setVisible(true);
     }
     
 }

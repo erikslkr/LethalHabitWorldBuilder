@@ -23,12 +23,13 @@ public class Editor extends JFrame {
     private final List<BufferedImage> TILEMAP = new ArrayList<>();
     private final List<BufferedImage> LIQUID_TILEMAP = new ArrayList<>();
     private final List<BufferedImage> INTERACTABLE_TILEMAP = new ArrayList<>();
+    
     private final List<Integer> activeKeys = new ArrayList<>();
     
     private final EditorPane editorPane;
-    private final TileToolbar toolbar;
-    private final LiquidToolbar sidebarR;
-    private final InteractableToolbar sidebarL;
+    private final Toolbar toolbar;
+    private final Toolbar sidebarR;
+    private final Toolbar sidebarL;
     
     private Map<Integer, Map<Integer, Tile>> importedWorldData = null;
     private int importedWorldOffsetX = 0;
@@ -37,9 +38,7 @@ public class Editor extends JFrame {
     private boolean inferOrientation = true;
     
     public Editor() {
-        loadTilemap();
-        loadLiquidTilemap();
-        loadInteractableTilemap();
+        loadTilemaps();
         setTitle("Lethal Habit - World Builder");
         setSize(1300, 800);
         setDefaultCloseOperation(DISPOSE_ON_CLOSE);
@@ -47,9 +46,9 @@ public class Editor extends JFrame {
         setResizable(true);
         setLayout(new BorderLayout());
         editorPane = new EditorPane();
-        toolbar = new TileToolbar();
-        sidebarR = new LiquidToolbar();
-        sidebarL = new InteractableToolbar();
+        toolbar = new Toolbar(TILEMAP, true, true);
+        sidebarR = new Toolbar(LIQUID_TILEMAP, false, true);
+        sidebarL = new Toolbar(INTERACTABLE_TILEMAP, false, false);
         add(editorPane, BorderLayout.CENTER);
         add(toolbar, BorderLayout.PAGE_START);
         add(sidebarR, BorderLayout.LINE_END);
@@ -59,33 +58,16 @@ public class Editor extends JFrame {
             public void keyPressed(KeyEvent e) {
                 switch (e.getKeyCode()) {
                     case KeyEvent.VK_K -> {
-                        // toggle toolbar
-                        toolbar.setVisible(!toolbar.isVisible());
-                        if (toolbar.isVisible()) {
-                            add(toolbar, BorderLayout.PAGE_START);
-                        } else {
-                            remove(toolbar);
-                        }
-                        revalidate();
+                        // toggle toolbar (tiles)
+                        toolbar.toggle();
                     }
                     case KeyEvent.VK_L -> {
-                        // toggle sidebar
-                        sidebarL.setVisible(!sidebarL.isVisible());
-                        if (sidebarL.isVisible()) {
-                            add(sidebarL, BorderLayout.LINE_END);
-                        } else {
-                            remove(sidebarL);
-                        }
-                        revalidate();
+                        // toggle sidebar (interactables)
+                        sidebarL.toggle();
                     }
                     case KeyEvent.VK_O -> {
-                        sidebarR.setVisible(!sidebarR.isVisible());
-                        if (sidebarR.isVisible()) {
-                            add(sidebarR, BorderLayout.LINE_END);
-                        } else {
-                            remove(sidebarR);
-                        }
-                        revalidate();
+                        // toggle sidebar (liquids)
+                        sidebarR.toggle();
                     }
                     case KeyEvent.VK_P -> {
                         // toggle orientation inferring mode
@@ -118,12 +100,12 @@ public class Editor extends JFrame {
                     case KeyEvent.VK_Q -> {
                         // move toolbar selection left
                         toolbar.prepareSelection();
-                        toolbar.select((Math.max(-1, (toolbar.selection - 1)) % TILEMAP.size() + TILEMAP.size()) % TILEMAP.size());
+                        toolbar.select((Math.max(-1, (toolbar.getSelection() - 1)) % TILEMAP.size() + TILEMAP.size()) % TILEMAP.size());
                     }
                     case KeyEvent.VK_E -> {
                         // move toolbar selection right
                         toolbar.prepareSelection();
-                        toolbar.select((toolbar.selection + 1) % TILEMAP.size());
+                        toolbar.select((toolbar.getSelection() + 1) % TILEMAP.size());
                     }
                     case KeyEvent.VK_C -> {
                         // toggle toolbar selection
@@ -139,7 +121,7 @@ public class Editor extends JFrame {
                     case KeyEvent.VK_SPACE -> {
                         // move sidebar selection down
                         sidebarR.prepareSelection();
-                        sidebarR.select((sidebarR.selection + 1) % LIQUID_TILEMAP.size());
+                        sidebarR.select((sidebarR.getSelection() + 1) % LIQUID_TILEMAP.size());
                     }
                     case KeyEvent.VK_G -> {
                         // toggle grid drawing
@@ -167,7 +149,7 @@ public class Editor extends JFrame {
                     case KeyEvent.VK_M -> {
                         // show map
                         BufferedImage minimap = generateMinimap();
-                        tempCreateMinimapWindow(minimap);
+                        createMinimapWindow(minimap);
                     }
                     case KeyEvent.VK_X -> {
                         // undo
@@ -255,15 +237,6 @@ public class Editor extends JFrame {
         });
     }
     
-    private static void tempCreateMinimapWindow(BufferedImage minimap) {
-        Image scaled = Scalr.resize(minimap, WorldBuilder.WIDTH / 2, WorldBuilder.HEIGHT / 2);
-        JLabel content = new JLabel(new ImageIcon(scaled));
-        JFrame frame = new JFrame();
-        frame.setSize(WorldBuilder.WIDTH / 2 + 50, WorldBuilder.HEIGHT / 2 + 50);
-        frame.setContentPane(content);
-        frame.setVisible(true);
-    }
-    
     private BufferedImage generateMinimap() {
         Map<Integer, Map<Integer, Tile>> worldData = copyWorldData(WorldBuilder.INSTANCE.getWorldData());
         int width = (worldData.keySet().stream().max(Integer::compareTo).orElse(1) + 1) * WorldBuilder.TILE_SIZE;
@@ -282,40 +255,27 @@ public class Editor extends JFrame {
                 if (tile.block >= 0) {
                     graphics.drawImage(TILEMAP.get(tile.block), x, y, null);
                 }
+                if (tile.interactable >= 0) {
+                    graphics.drawImage(INTERACTABLE_TILEMAP.get(tile.interactable), x, y, null);
+                }
             }
         }
         return image;
     }
     
-    private void loadTilemap() {
-        for (int i = 0; ; i++) {
-            try {
-                InputStream stream = getClass().getResourceAsStream("/tiles/tile" + i + ".png");
-                TILEMAP.add(ImageIO.read(stream));
-            } catch (Exception ex) {
-                break;
-            }
-        }
+    private void loadTilemaps() {
+        load("/tiles/tile", TILEMAP);
+        load("/liquids/liquid", LIQUID_TILEMAP);
+        load("/interactables/interactable", INTERACTABLE_TILEMAP);
     }
     
-    private void loadLiquidTilemap() {
+    private void load(String fromPath, List<BufferedImage> to) {
         for (int i = 0; ; i++) {
             try {
-                InputStream stream = getClass().getResourceAsStream("/liquids/liquid" + i + ".png");
-                LIQUID_TILEMAP.add(ImageIO.read(stream));
+                InputStream stream = getClass().getResourceAsStream(fromPath + i + ".png");
+                to.add(ImageIO.read(stream));
             } catch (Exception ex) {
-                break;
-            }
-        }
-    }
-    
-    private void loadInteractableTilemap() {
-        for (int i = 0; ; i++) {
-            try {
-                InputStream stream = getClass().getResourceAsStream("/interactables/interactable" + i + ".png");
-                INTERACTABLE_TILEMAP.add(ImageIO.read(stream));
-            } catch (Exception ex) {
-                break;
+                return;
             }
         }
     }
@@ -464,14 +424,14 @@ public class Editor extends JFrame {
                         g.drawImage(interactableImage, x, y, null);
                     }
                     if (hovered) {
-                        if (toolbar.selection >= 0) {
-                            g.drawImage(transparentImage(TILEMAP.get(toolbar.selection), 0.35f), x, y, null);
+                        if (toolbar.getSelection() >= 0) {
+                            g.drawImage(transparentImage(TILEMAP.get(toolbar.getSelection()), 0.35f), x, y, null);
                         }
-                        if (sidebarR.selection >= 0) {
-                            g.drawImage(transparentImage(LIQUID_TILEMAP.get(sidebarR.selection), 0.35f), x, y, null);
+                        if (sidebarR.getSelection() >= 0) {
+                            g.drawImage(transparentImage(LIQUID_TILEMAP.get(sidebarR.getSelection()), 0.35f), x, y, null);
                         }
-                        if (sidebarL.selection >= 0) {
-                            g.drawImage(transparentImage(INTERACTABLE_TILEMAP.get(sidebarL.selection), 0.35f), x, y, null);
+                        if (sidebarL.getSelection() >= 0) {
+                            g.drawImage(transparentImage(INTERACTABLE_TILEMAP.get(sidebarL.getSelection()), 0.35f), x, y, null);
                         }
                         chunkX = i;
                         chunkY = j;
@@ -553,9 +513,9 @@ public class Editor extends JFrame {
                         Map<Integer, Tile> column = WorldBuilder.INSTANCE.getWorldData().getOrDefault(chunkX, new HashMap<>());
                         Tile current = column.get(chunkY);
                         column.put(chunkY, new Tile(
-                                toolbar.selection >= 0 ? toolbar.selection : (current == null ? -1 : current.block),
-                                sidebarR.selection >= 0 ? sidebarR.selection : (current == null ? -1 : current.liquid),
-                                sidebarL.selection >= 0 ? sidebarL.selection : (current == null ? -1 : current.interactable)
+                                toolbar.getSelection() >= 0 ? toolbar.getSelection() : (current == null ? -1 : current.block),
+                                sidebarR.getSelection() >= 0 ? sidebarR.getSelection() : (current == null ? -1 : current.liquid),
+                                sidebarL.getSelection() >= 0 ? sidebarL.getSelection() : (current == null ? -1 : current.interactable)
                         ));
                         WorldBuilder.INSTANCE.getWorldData().put(chunkX, column);
                         if (inferOrientation) {
@@ -616,7 +576,7 @@ public class Editor extends JFrame {
                 }
             }
         }
-    
+        
         private void addUndoCheckpoint() {
             Map<Integer, Map<Integer, Tile>> currentWorld = copyWorldData(WorldBuilder.INSTANCE.getWorldData());
             if (recentWorldStates.isEmpty() || !currentWorld.equals(recentWorldStates.peek())) {
@@ -626,17 +586,55 @@ public class Editor extends JFrame {
         
     }
     
-    public abstract class Toolbar extends JScrollPane {
+    public class Toolbar extends JScrollPane {
         
         public static final int MARGIN = 15;
         
-        protected int recentSelection = -1;
-        protected int selection = -1;
+        private final List<BufferedImage> resources;
+        private final boolean horizontal;
+        private final boolean autoSelectable;
         
-        protected abstract void select(int selection);
+        private int recentSelection = -1;
+        private int selection = -1;
+        
+        public Toolbar(List<BufferedImage> resources, boolean horizontal, boolean autoSelectable) {
+            this.resources = resources;
+            this.horizontal = horizontal;
+            this.autoSelectable = autoSelectable;
+            JPanel content = new JPanel();
+            content.setLayout(new BoxLayout(content, horizontal ? BoxLayout.X_AXIS : BoxLayout.Y_AXIS));
+            for (int i = 0; i < resources.size(); i++) {
+                int index = i;
+                BufferedImage tile = resources.get(i);
+                ToolbarElement image = new ToolbarElement(this, tile, index);
+                image.addMouseListener(new MouseAdapter() {
+                    public void mousePressed(MouseEvent e) {
+                        prepareSelection();
+                        select(index);
+                    }
+                });
+                image.setVisible(true);
+                content.add(image);
+            }
+            setHorizontalScrollBarPolicy(horizontal ? HORIZONTAL_SCROLLBAR_ALWAYS : HORIZONTAL_SCROLLBAR_NEVER);
+            setVerticalScrollBarPolicy(horizontal ? VERTICAL_SCROLLBAR_NEVER : VERTICAL_SCROLLBAR_ALWAYS);
+            setViewportView(content);
+            setVisible(true);
+        }
         
         public final int getSelection() {
             return selection;
+        }
+        
+        public final void select(int selection) {
+            this.selection = Math.min(resources.size() - 1, selection);
+            if (selection >= 0) {
+                JScrollBar scrollBar = horizontal ? getHorizontalScrollBar() : getVerticalScrollBar();
+                int min = scrollBar.getMinimum();
+                int max = scrollBar.getMaximum();
+                double ratio = Math.max(0, Math.min(1, (double) selection / ((double) resources.size() - 1) - 0.2));
+                scrollBar.setValue(min + (int) (ratio * (max - min)));
+            }
         }
         
         public final void toggleSelection() {
@@ -653,6 +651,16 @@ public class Editor extends JFrame {
             if (recentSelection >= 0) {
                 toggleSelection();
             }
+        }
+        
+        public final void toggle() {
+            this.setVisible(!this.isVisible());
+            if (this.isVisible()) {
+                Editor.this.add(this, BorderLayout.PAGE_START);
+            } else {
+                Editor.this.remove(this);
+            }
+            Editor.this.revalidate();
         }
         
         public class ToolbarElement extends JLabel {
@@ -686,7 +694,7 @@ public class Editor extends JFrame {
                 super.paint(g);
                 if (selected) {
                     setIcon(new ImageIcon(this.image));
-                    setBorder(new MatteBorder(MARGIN, MARGIN, MARGIN, MARGIN, new Color(!inferOrientation || parent instanceof InteractableToolbar ? 0x4287f5 : 0xdb2137)));
+                    setBorder(new MatteBorder(MARGIN, MARGIN, MARGIN, MARGIN, new Color(inferOrientation && parent.autoSelectable ? 0xdb2137 : 0x4287f5)));
                 } else {
                     setIcon(new ImageIcon(hovered ? this.image : transparentImage(this.image, 0.35f)));
                     setBorder(new EmptyBorder(MARGIN, MARGIN, MARGIN, MARGIN));
@@ -697,124 +705,10 @@ public class Editor extends JFrame {
             @Override
             public void repaint() {
                 super.repaint();
-                selected = (parent != null && parent.getSelection() == index);
+                selected = (parent != null && parent.selection == index);
             }
             
         }
-    }
-    
-    public class LiquidToolbar extends Toolbar {
-        
-        public LiquidToolbar() {
-            JPanel content = new JPanel();
-            content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
-            for (int i = 0; i < LIQUID_TILEMAP.size(); i++) {
-                int index = i;
-                BufferedImage liquidTile = LIQUID_TILEMAP.get(i);
-                ToolbarElement image = new ToolbarElement(this, liquidTile, index);
-                image.addMouseListener(new MouseAdapter() {
-                    public void mousePressed(MouseEvent e) {
-                        prepareSelection();
-                        select(index);
-                    }
-                });
-                image.setVisible(true);
-                content.add(image);
-            }
-            setHorizontalScrollBarPolicy(HORIZONTAL_SCROLLBAR_NEVER);
-            setVerticalScrollBarPolicy(VERTICAL_SCROLLBAR_ALWAYS);
-            setViewportView(content);
-            setVisible(true);
-        }
-        
-        @Override
-        public void select(int selection) {
-            this.selection = Math.min(LIQUID_TILEMAP.size() - 1, selection);
-            if (selection >= 0) {
-                JScrollBar scrollBar = getVerticalScrollBar();
-                int min = scrollBar.getMinimum();
-                int max = scrollBar.getMaximum();
-                double ratio = Math.max(0, Math.min(1, (double) selection / ((double) LIQUID_TILEMAP.size() - 1) - 0.2));
-                scrollBar.setValue(min + (int) (ratio * (max - min)));
-            }
-        }
-        
-    }
-    
-    public class InteractableToolbar extends Toolbar {
-        
-        public InteractableToolbar() {
-            JPanel content = new JPanel();
-            content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
-            for (int i = 0; i < INTERACTABLE_TILEMAP.size(); i++) {
-                int index = i;
-                BufferedImage liquidTile = INTERACTABLE_TILEMAP.get(i);
-                ToolbarElement image = new ToolbarElement(this, liquidTile, index);
-                image.addMouseListener(new MouseAdapter() {
-                    public void mousePressed(MouseEvent e) {
-                        prepareSelection();
-                        select(index);
-                    }
-                });
-                image.setVisible(true);
-                content.add(image);
-            }
-            setHorizontalScrollBarPolicy(HORIZONTAL_SCROLLBAR_NEVER);
-            setVerticalScrollBarPolicy(VERTICAL_SCROLLBAR_ALWAYS);
-            setViewportView(content);
-            setVisible(true);
-        }
-    
-        @Override
-        public void select(int selection) {
-            this.selection = Math.min(INTERACTABLE_TILEMAP.size() - 1, selection);
-            if (selection >= 0) {
-                JScrollBar scrollBar = getVerticalScrollBar();
-                int min = scrollBar.getMinimum();
-                int max = scrollBar.getMaximum();
-                double ratio = Math.max(0, Math.min(1, (double) selection / ((double) LIQUID_TILEMAP.size() - 1) - 0.2));
-                scrollBar.setValue(min + (int) (ratio * (max - min)));
-            }
-        }
-        
-    }
-    
-    public class TileToolbar extends Toolbar {
-        
-        public TileToolbar() {
-            JPanel content = new JPanel();
-            content.setLayout(new FlowLayout());
-            for (int i = 0; i < TILEMAP.size(); i++) {
-                int index = i;
-                BufferedImage tile = TILEMAP.get(i);
-                ToolbarElement image = new ToolbarElement(this, tile, index);
-                image.addMouseListener(new MouseAdapter() {
-                    public void mousePressed(MouseEvent e) {
-                        prepareSelection();
-                        select(index);
-                    }
-                });
-                image.setVisible(true);
-                content.add(image);
-            }
-            setVerticalScrollBarPolicy(VERTICAL_SCROLLBAR_NEVER);
-            setHorizontalScrollBarPolicy(HORIZONTAL_SCROLLBAR_ALWAYS);
-            setViewportView(content);
-            setVisible(true);
-        }
-        
-        @Override
-        public void select(int selection) {
-            this.selection = Math.min(TILEMAP.size() - 1, selection);
-            if (selection >= 0) {
-                JScrollBar scrollBar = getHorizontalScrollBar();
-                int min = scrollBar.getMinimum();
-                int max = scrollBar.getMaximum();
-                double ratio = Math.max(0, Math.min(1, (double) selection / ((double) TILEMAP.size() - 1) - 0.2));
-                scrollBar.setValue(min + (int) (ratio * (max - min)));
-            }
-        }
-        
     }
     
 }
