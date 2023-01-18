@@ -1,12 +1,11 @@
 package lethalhabit.worldbuilder;
 
-import org.imgscalr.Scalr;
-
 import javax.imageio.ImageIO;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.border.MatteBorder;
 import javax.swing.event.MouseInputAdapter;
+import javax.swing.filechooser.FileFilter;
 import javax.swing.text.PlainDocument;
 import java.awt.*;
 import java.awt.event.*;
@@ -127,6 +126,12 @@ public class Editor extends JFrame {
                         // toggle grid drawing
                         editorPane.drawGrid = !editorPane.drawGrid;
                     }
+                    case KeyEvent.VK_PERIOD -> {
+                        editorPane.camera.setSpeed(editorPane.camera.getSpeed() + 1);
+                    }
+                    case KeyEvent.VK_COMMA -> {
+                        editorPane.camera.setSpeed(editorPane.camera.getSpeed() - 1);
+                    }
                     case KeyEvent.VK_T -> {
                         // teleport
                         JTextField xField = new JTextField(5);
@@ -222,7 +227,7 @@ public class Editor extends JFrame {
                     }
                     case KeyEvent.VK_J -> {
                         // save
-                        save(null, null, false);
+                        saveDialog(WorldBuilder.INSTANCE::saveWorldData, null, false, jsonFileFilter(), "Save world file", Editor.this);
                     }
                     default -> {
                         // add keys that respond to holding to the list
@@ -286,34 +291,10 @@ public class Editor extends JFrame {
         if (WorldBuilder.INSTANCE.getWorldData().equals(WorldBuilder.INSTANCE.getLastSavedWorldData())) {
             System.exit(0);
         } else {
-            save(System::exit, Editor::new, true);
-        }
-    }
-    
-    public void save(Consumer<Integer> onApprove, Runnable onCancel, boolean discardable) {
-        JFileChooser fileChooser = new JFileChooser();
-        fileChooser.setDialogTitle("Save world file");
-        fileChooser.setFileFilter(jsonFileFilter());
-        if (discardable) {
-            JButton discardButton = new JButton("Exit");
-            discardButton.addActionListener(e -> {
-                int result = JOptionPane.showConfirmDialog(fileChooser, "Do you really want to discard all your changes?", "Confirm", JOptionPane.OK_CANCEL_OPTION);
-                if (result == JOptionPane.OK_OPTION) {
-                    System.exit(0);
-                }
-            });
-            ((JPanel) ((JPanel) fileChooser.getComponent(3)).getComponent(3)).add(discardButton);
-        }
-        int result = fileChooser.showSaveDialog(Editor.this);
-        if (result == JFileChooser.APPROVE_OPTION) {
-            int success = WorldBuilder.INSTANCE.saveWorldData(fileChooser.getSelectedFile());
-            if (onApprove != null) {
-                onApprove.accept(success);
-            }
-        } else if (result == JFileChooser.CANCEL_OPTION) {
-            if (onCancel != null) {
-                onCancel.run();
-            }
+            saveDialog((file) -> {
+                int success = WorldBuilder.INSTANCE.saveWorldData(file);
+                System.exit(success);
+            }, Editor::new, true, jsonFileFilter(), "Save world file", Editor.this);
         }
     }
     

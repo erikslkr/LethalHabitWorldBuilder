@@ -41,7 +41,7 @@ public final class WorldBuilder {
         createNewButton.addActionListener(e -> {
             fileChooser.approveSelection();
         });
-        ((JPanel) ((JPanel) fileChooser.getComponent(3)).getComponent(3)).add(createNewButton);
+        //((JPanel) ((JPanel) fileChooser.getComponent(3)).getComponent(3)).add(createNewButton);
         int result = fileChooser.showOpenDialog(null);
         if (result == JFileChooser.APPROVE_OPTION) {
             if (fileChooser.getSelectedFile() != null) {

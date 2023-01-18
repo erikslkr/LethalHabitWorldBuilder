@@ -3,6 +3,7 @@ package lethalhabit.worldbuilder;
 import com.google.gson.Gson;
 import org.imgscalr.Scalr;
 
+import javax.imageio.ImageIO;
 import javax.swing.*;
 import javax.swing.filechooser.FileFilter;
 import javax.swing.text.AttributeSet;
@@ -10,6 +11,8 @@ import javax.swing.text.BadLocationException;
 import javax.swing.text.Document;
 import javax.swing.text.DocumentFilter;
 import java.awt.*;
+import java.awt.event.KeyAdapter;
+import java.awt.event.KeyEvent;
 import java.awt.image.BufferedImage;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
@@ -17,6 +20,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.Consumer;
 
 public final class Util {
     
@@ -76,6 +80,18 @@ public final class Util {
             
             public String getDescription() {
                 return "JSON Files (.json)";
+            }
+        };
+    }
+    
+    public static FileFilter pngFileFilter() {
+        return new FileFilter() {
+            public boolean accept(File f) {
+                return f.isDirectory() || f.getName().endsWith(".png");
+            }
+            
+            public String getDescription() {
+                return "PNG Files (.png)";
             }
         };
     }
@@ -145,6 +161,47 @@ public final class Util {
         frame.setSize(WorldBuilder.WIDTH / 2 + 50, WorldBuilder.HEIGHT / 2 + 50);
         frame.setContentPane(content);
         frame.setVisible(true);
+        frame.addKeyListener(new KeyAdapter() {
+            public void keyPressed(KeyEvent e) {
+                if (e.getKeyCode() == KeyEvent.VK_F) {
+                    saveDialog(file -> saveMinimap(minimap, file), () -> {}, false, pngFileFilter(), "Save minimap", frame);
+                }
+            }
+        });
+    }
+    
+    public static void saveMinimap(BufferedImage image, File file) {
+        try {
+            ImageIO.write(image, "png", file);
+        } catch (IOException ex) {
+            JOptionPane.showMessageDialog(null, "World data could not be saved.", "Fatal Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+    
+    public static void saveDialog(Consumer<File> onApprove, Runnable onCancel, boolean discardable, FileFilter filter, String title, Component parent) {
+        JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setDialogTitle(title);
+        fileChooser.setFileFilter(filter);
+        if (discardable) {
+            JButton discardButton = new JButton("Exit");
+            discardButton.addActionListener(e -> {
+                int result = JOptionPane.showConfirmDialog(fileChooser, "Do you really want to discard all your changes?", "Confirm", JOptionPane.OK_CANCEL_OPTION);
+                if (result == JOptionPane.OK_OPTION) {
+                    System.exit(0);
+                }
+            });
+            ((JPanel) ((JPanel) fileChooser.getComponent(3)).getComponent(3)).add(discardButton);
+        }
+        int result = fileChooser.showSaveDialog(parent);
+        if (result == JFileChooser.APPROVE_OPTION) {
+            if (onApprove != null) {
+                onApprove.accept(fileChooser.getSelectedFile());
+            }
+        } else if (result == JFileChooser.CANCEL_OPTION) {
+            if (onCancel != null) {
+                onCancel.run();
+            }
+        }
     }
     
 }
