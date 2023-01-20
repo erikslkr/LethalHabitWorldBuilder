@@ -265,6 +265,7 @@ public class Editor extends JFrame {
                 }
             }
         }
+        graphics.dispose();
         return image;
     }
     
