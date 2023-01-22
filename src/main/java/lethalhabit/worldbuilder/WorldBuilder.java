@@ -16,7 +16,7 @@ import static lethalhabit.worldbuilder.Util.*;
 
 public final class WorldBuilder {
     
-    public static final int TILE_SIZE = 100;
+    public static int TILE_SIZE = 100;
     
     public static final int WIDTH = Toolkit.getDefaultToolkit().getScreenSize().width;
     public static final int HEIGHT = Toolkit.getDefaultToolkit().getScreenSize().height;

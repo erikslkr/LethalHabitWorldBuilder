@@ -1,5 +1,6 @@
 package lethalhabit.worldbuilder;
 
+import com.sun.tools.javac.Main;
 import org.imgscalr.Scalr;
 
 import javax.imageio.ImageIO;
@@ -22,10 +23,13 @@ import static lethalhabit.worldbuilder.Util.*;
 
 public class Editor extends JFrame {
     
-    private final List<BufferedImage> TILEMAP = new ArrayList<>();
-    private final List<BufferedImage> LIQUID_TILEMAP = new ArrayList<>();
-    private final List<BufferedImage> INTERACTABLE_TILEMAP = new ArrayList<>();
+    private final List<BufferedImage> OG_TILEMAP = new ArrayList<>();
+    private final List<BufferedImage> OG_LIQUID_TILEMAP = new ArrayList<>();
+    private final List<BufferedImage> OG_INTERACTABLE_TILEMAP = new ArrayList<>();
     
+    private List<BufferedImage> TILEMAP = new ArrayList<>();
+    private List<BufferedImage> LIQUID_TILEMAP = new ArrayList<>();
+    private List<BufferedImage> INTERACTABLE_TILEMAP = new ArrayList<>();
     private final List<Integer> activeKeys = new ArrayList<>();
     
     private final EditorPane editorPane;
@@ -142,10 +146,20 @@ public class Editor extends JFrame {
                         editorPane.drawGrid = !editorPane.drawGrid;
                     }
                     case KeyEvent.VK_PERIOD -> {
-                        editorPane.camera.setSpeed(editorPane.camera.getSpeed() + 1);
+                        // zoom in -> TILE_SIZE++
+                        int previousTileSize = WorldBuilder.TILE_SIZE;
+                        WorldBuilder.TILE_SIZE += 5;
+                        TILEMAP = OG_TILEMAP.stream().map(img -> Scalr.resize(img, WorldBuilder.TILE_SIZE, WorldBuilder.TILE_SIZE)).toList();
+                        LIQUID_TILEMAP = OG_LIQUID_TILEMAP.stream().map(img -> Scalr.resize(img, WorldBuilder.TILE_SIZE, WorldBuilder.TILE_SIZE)).toList();
+                        INTERACTABLE_TILEMAP = OG_INTERACTABLE_TILEMAP.stream().map(img -> Scalr.resize(img, WorldBuilder.TILE_SIZE, WorldBuilder.TILE_SIZE)).toList();
+                        editorPane.camera.setPosition((editorPane.camera.getPosition().x() / previousTileSize) * WorldBuilder.TILE_SIZE, (editorPane.camera.getPosition().y() / previousTileSize) * WorldBuilder.TILE_SIZE);
                     }
                     case KeyEvent.VK_COMMA -> {
-                        editorPane.camera.setSpeed(editorPane.camera.getSpeed() - 1);
+                        // zoom out -> TILE_SIZE--
+                        WorldBuilder.TILE_SIZE = Math.max(5, WorldBuilder.TILE_SIZE - 5);
+                        TILEMAP = OG_TILEMAP.stream().map(img -> Scalr.resize(img, WorldBuilder.TILE_SIZE, WorldBuilder.TILE_SIZE)).toList();
+                        LIQUID_TILEMAP = OG_LIQUID_TILEMAP.stream().map(img -> Scalr.resize(img, WorldBuilder.TILE_SIZE, WorldBuilder.TILE_SIZE)).toList();
+                        INTERACTABLE_TILEMAP = OG_INTERACTABLE_TILEMAP.stream().map(img -> Scalr.resize(img, WorldBuilder.TILE_SIZE, WorldBuilder.TILE_SIZE)).toList();
                     }
                     case KeyEvent.VK_T -> {
                         // teleport
@@ -233,12 +247,12 @@ public class Editor extends JFrame {
                     case KeyEvent.VK_1, KeyEvent.VK_2, KeyEvent.VK_3, KeyEvent.VK_4, KeyEvent.VK_5, KeyEvent.VK_6, KeyEvent.VK_7, KeyEvent.VK_8, KeyEvent.VK_9 -> {
                         // select n-th tile group
                         toolbar.prepareSelection();
-                        toolbar.select((e.getKeyCode() - 0x31) * 16);
+                        toolbar.select((e.getKeyCode() - 0x31) * WorldBuilder.TILE_GROUP_SIZE);
                     }
                     case KeyEvent.VK_NUMPAD1, KeyEvent.VK_NUMPAD2, KeyEvent.VK_NUMPAD3, KeyEvent.VK_NUMPAD4, KeyEvent.VK_NUMPAD5, KeyEvent.VK_NUMPAD6, KeyEvent.VK_NUMPAD7, KeyEvent.VK_NUMPAD8, KeyEvent.VK_NUMPAD9 -> {
                         // select n-th liquid group
                         sidebarR.prepareSelection();
-                        sidebarR.select((e.getKeyCode() - 0x61) * 2);
+                        sidebarR.select((e.getKeyCode() - 0x61) * WorldBuilder.LIQUID_GROUP_SIZE);
                     }
                     case KeyEvent.VK_J -> {
                         // save
@@ -287,9 +301,12 @@ public class Editor extends JFrame {
     }
     
     private void loadTilemaps() {
-        load("/tiles/tile", TILEMAP);
-        load("/liquids/liquid", LIQUID_TILEMAP);
-        load("/interactables/interactable", INTERACTABLE_TILEMAP);
+        load("/tiles/tile", OG_TILEMAP);
+        TILEMAP = new ArrayList<>(OG_TILEMAP);
+        load("/liquids/liquid", OG_LIQUID_TILEMAP);
+        LIQUID_TILEMAP = new ArrayList<>(OG_LIQUID_TILEMAP);
+        load("/interactables/interactable", OG_INTERACTABLE_TILEMAP);
+        INTERACTABLE_TILEMAP = new ArrayList<>(OG_INTERACTABLE_TILEMAP);
     }
     
     private void load(String fromPath, List<BufferedImage> to) {
@@ -390,10 +407,10 @@ public class Editor extends JFrame {
                 }
             }
             // DRAW TILES
-            int offsetX = camera.getPosition().x() / WorldBuilder.TILE_SIZE - 10;
-            int offsetY = camera.getPosition().y() / WorldBuilder.TILE_SIZE - 5;
-            for (int i = offsetX; i <= WorldBuilder.WIDTH / WorldBuilder.TILE_SIZE + offsetX; i++) {
-                for (int j = offsetY; j <= WorldBuilder.HEIGHT / WorldBuilder.TILE_SIZE + offsetY; j++) {
+            int offsetX = camera.getPosition().x() / WorldBuilder.TILE_SIZE;
+            int offsetY = camera.getPosition().y() / WorldBuilder.TILE_SIZE;
+            for (int i = 0; i <= WorldBuilder.WIDTH / WorldBuilder.TILE_SIZE + offsetX; i++) {
+                for (int j = 0; j <= WorldBuilder.HEIGHT / WorldBuilder.TILE_SIZE + offsetY; j++) {
                     int x = (i + (WorldBuilder.WIDTH / 2) / WorldBuilder.TILE_SIZE + 1) * WorldBuilder.TILE_SIZE - camera.getPosition().x();
                     int y = (j + (WorldBuilder.HEIGHT / 2) / WorldBuilder.TILE_SIZE) * WorldBuilder.TILE_SIZE - camera.getPosition().y();
                     boolean hovered = mouseInPane && mousePosition != null && mousePosition.x() >= x && mousePosition.x() <= x + WorldBuilder.TILE_SIZE && mousePosition.y() >= y + WorldBuilder.TILE_SIZE && mousePosition.y() <= y + 2 * WorldBuilder.TILE_SIZE;
@@ -464,6 +481,7 @@ public class Editor extends JFrame {
                         }
                     }
                     if (showTileIndices) {
+                        g.setFont(g.getFont().deriveFont(Font.BOLD, 16f * (float) WorldBuilder.TILE_SIZE / 100f));
                         String string = i + " | " + j;
                         int stringX = x + (WorldBuilder.TILE_SIZE - g.getFontMetrics().stringWidth(string)) / 2;
                         int stringY = y + WorldBuilder.TILE_SIZE - (WorldBuilder.TILE_SIZE - g.getFontMetrics().getHeight()) / 2;
@@ -474,7 +492,7 @@ public class Editor extends JFrame {
             }
             if (showPosition) {
                 g.setColor(Color.RED);
-                g.setFont(g.getFont().deriveFont(Font.BOLD));
+                g.setFont(g.getFont().deriveFont(Font.BOLD, 16f));
                 g.drawString("X: " + camera.getPosition().x(), 5, 20);
                 g.drawString("Y: " + camera.getPosition().y(), 5, 40);
             }
