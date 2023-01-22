@@ -99,12 +99,24 @@ public class Editor extends JFrame {
                     case KeyEvent.VK_Q -> {
                         // move toolbar selection left
                         toolbar.prepareSelection();
-                        toolbar.select((Math.max(-1, (toolbar.getSelection() - 1)) % TILEMAP.size() + TILEMAP.size()) % TILEMAP.size());
+                        if (inferOrientation) {
+                            int tileGroupCount = TILEMAP.size() / WorldBuilder.TILE_GROUP_SIZE;
+                            int currentGroup = Math.max(0, toolbar.getSelection()) / WorldBuilder.TILE_GROUP_SIZE;
+                            toolbar.select((((currentGroup - 1) % tileGroupCount + tileGroupCount) % tileGroupCount) * WorldBuilder.TILE_GROUP_SIZE);
+                        } else {
+                            toolbar.select((Math.max(-1, (toolbar.getSelection() - 1)) % TILEMAP.size() + TILEMAP.size()) % TILEMAP.size());
+                        }
                     }
                     case KeyEvent.VK_E -> {
                         // move toolbar selection right
                         toolbar.prepareSelection();
-                        toolbar.select((toolbar.getSelection() + 1) % TILEMAP.size());
+                        if (inferOrientation) {
+                            int tileGroupCount = TILEMAP.size() / WorldBuilder.TILE_GROUP_SIZE;
+                            int currentGroup = toolbar.getSelection() / WorldBuilder.TILE_GROUP_SIZE;
+                            toolbar.select(((currentGroup + 1) % tileGroupCount) * WorldBuilder.TILE_GROUP_SIZE);
+                        } else {
+                            toolbar.select((toolbar.getSelection() + 1) % TILEMAP.size());
+                        }
                     }
                     case KeyEvent.VK_C -> {
                         // toggle toolbar selection
@@ -614,7 +626,7 @@ public class Editor extends JFrame {
                 JScrollBar scrollBar = horizontal ? getHorizontalScrollBar() : getVerticalScrollBar();
                 int min = scrollBar.getMinimum();
                 int max = scrollBar.getMaximum();
-                double ratio = Math.max(0, Math.min(1, (double) selection / ((double) resources.size() - 1) - 0.2));
+                double ratio = Math.max(0, Math.min(1, (double) selection / ((double) resources.size() - 1)) - 0.1);
                 scrollBar.setValue(min + (int) (ratio * (max - min)));
             }
         }
