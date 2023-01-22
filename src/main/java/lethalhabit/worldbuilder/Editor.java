@@ -1,5 +1,7 @@
 package lethalhabit.worldbuilder;
 
+import org.imgscalr.Scalr;
+
 import javax.imageio.ImageIO;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -14,6 +16,7 @@ import java.io.InputStream;
 import java.util.List;
 import java.util.*;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 import static lethalhabit.worldbuilder.Util.*;
 
@@ -255,25 +258,27 @@ public class Editor extends JFrame {
     }
     
     private BufferedImage generateMinimap() {
+        int factor = 10;
         Map<Integer, Map<Integer, Tile>> worldData = copyWorldData(WorldBuilder.INSTANCE.getWorldData());
-        int width = (worldData.keySet().stream().max(Integer::compareTo).orElse(1) + 1) * WorldBuilder.TILE_SIZE;
-        int height = (worldData.values().stream().map(map -> map.keySet().stream().max(Integer::compareTo).orElse(1)).max(Integer::compareTo).orElse(1) + 2) * WorldBuilder.TILE_SIZE;
+        int width = (worldData.keySet().stream().max(Integer::compareTo).orElse(1) + 1) * WorldBuilder.TILE_SIZE / factor;
+        int height = (worldData.values().stream().map(map -> map.keySet().stream().max(Integer::compareTo).orElse(1)).max(Integer::compareTo).orElse(1) + 2) * WorldBuilder.TILE_SIZE / factor;
         BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
         Graphics2D graphics = image.createGraphics();
         for (Map.Entry<Integer, Map<Integer, Tile>> entry : worldData.entrySet()) {
-            int x = entry.getKey() * WorldBuilder.TILE_SIZE;
+            int x = entry.getKey() * WorldBuilder.TILE_SIZE / factor;
             Map<Integer, Tile> column = entry.getValue();
             for (Map.Entry<Integer, Tile> entryInner : column.entrySet()) {
-                int y = entryInner.getKey() * WorldBuilder.TILE_SIZE;
+                Function<BufferedImage, BufferedImage> scale = img -> Scalr.resize(img, WorldBuilder.TILE_SIZE / factor, WorldBuilder.TILE_SIZE / factor);
+                int y = entryInner.getKey() * WorldBuilder.TILE_SIZE / factor;
                 Tile tile = entryInner.getValue();
                 if (tile.liquid >= 0) {
-                    graphics.drawImage(LIQUID_TILEMAP.get(tile.liquid), x, y, null);
+                    graphics.drawImage(scale.apply(LIQUID_TILEMAP.get(tile.liquid)), x, y, null);
                 }
                 if (tile.block >= 0) {
-                    graphics.drawImage(TILEMAP.get(tile.block), x, y, null);
+                    graphics.drawImage(scale.apply(TILEMAP.get(tile.block)), x, y, null);
                 }
                 if (tile.interactable >= 0) {
-                    graphics.drawImage(INTERACTABLE_TILEMAP.get(tile.interactable), x, y, null);
+                    graphics.drawImage(scale.apply(INTERACTABLE_TILEMAP.get(tile.interactable)), x, y, null);
                 }
             }
         }
