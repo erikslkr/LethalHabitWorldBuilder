@@ -1,6 +1,5 @@
 package lethalhabit.worldbuilder;
 
-import com.sun.tools.javac.Main;
 import org.imgscalr.Scalr;
 
 import javax.imageio.ImageIO;
@@ -8,7 +7,6 @@ import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.border.MatteBorder;
 import javax.swing.event.MouseInputAdapter;
-import javax.swing.filechooser.FileFilter;
 import javax.swing.text.PlainDocument;
 import java.awt.*;
 import java.awt.event.*;
@@ -16,21 +14,19 @@ import java.awt.image.BufferedImage;
 import java.io.InputStream;
 import java.util.List;
 import java.util.*;
-import java.util.function.Consumer;
-import java.util.function.Function;
 
 import static lethalhabit.worldbuilder.Util.*;
 
 public class Editor extends JFrame {
     
-    private final List<BufferedImage> OG_TILEMAP = new ArrayList<>();
-    private final List<BufferedImage> OG_LIQUID_TILEMAP = new ArrayList<>();
-    private final List<BufferedImage> OG_INTERACTABLE_TILEMAP = new ArrayList<>();
+    private static final List<BufferedImage> OG_TILEMAP = new ArrayList<>();
+    private static final List<BufferedImage> OG_LIQUID_TILEMAP = new ArrayList<>();
+    private static final List<BufferedImage> OG_INTERACTABLE_TILEMAP = new ArrayList<>();
     
-    private List<BufferedImage> TILEMAP = new ArrayList<>();
-    private List<BufferedImage> LIQUID_TILEMAP = new ArrayList<>();
-    private List<BufferedImage> INTERACTABLE_TILEMAP = new ArrayList<>();
-    private final List<Integer> activeKeys = new ArrayList<>();
+    private static List<BufferedImage> TILEMAP = new ArrayList<>();
+    private static List<BufferedImage> LIQUID_TILEMAP = new ArrayList<>();
+    private static List<BufferedImage> INTERACTABLE_TILEMAP = new ArrayList<>();
+    private static final List<Integer> activeKeys = new ArrayList<>();
     
     private final EditorPane editorPane;
     private final Toolbar toolbar;
@@ -146,7 +142,7 @@ public class Editor extends JFrame {
                         editorPane.drawGrid = !editorPane.drawGrid;
                     }
                     case KeyEvent.VK_PERIOD -> {
-                        // zoom in -> TILE_SIZE++
+                        // zoom in
                         int previousTileSize = WorldBuilder.TILE_SIZE;
                         WorldBuilder.TILE_SIZE += 5;
                         TILEMAP = OG_TILEMAP.stream().map(img -> Scalr.resize(img, WorldBuilder.TILE_SIZE, WorldBuilder.TILE_SIZE)).toList();
@@ -155,7 +151,7 @@ public class Editor extends JFrame {
                         editorPane.camera.setPosition((editorPane.camera.getPosition().x() / previousTileSize) * WorldBuilder.TILE_SIZE, (editorPane.camera.getPosition().y() / previousTileSize) * WorldBuilder.TILE_SIZE);
                     }
                     case KeyEvent.VK_COMMA -> {
-                        // zoom out -> TILE_SIZE--
+                        // zoom out
                         WorldBuilder.TILE_SIZE = Math.max(5, WorldBuilder.TILE_SIZE - 5);
                         TILEMAP = OG_TILEMAP.stream().map(img -> Scalr.resize(img, WorldBuilder.TILE_SIZE, WorldBuilder.TILE_SIZE)).toList();
                         LIQUID_TILEMAP = OG_LIQUID_TILEMAP.stream().map(img -> Scalr.resize(img, WorldBuilder.TILE_SIZE, WorldBuilder.TILE_SIZE)).toList();
@@ -271,36 +267,33 @@ public class Editor extends JFrame {
         });
     }
     
-    private BufferedImage generateMinimap() {
-        int factor = 10;
-        Map<Integer, Map<Integer, Tile>> worldData = copyWorldData(WorldBuilder.INSTANCE.getWorldData());
-        int width = (worldData.keySet().stream().max(Integer::compareTo).orElse(1) + 1) * WorldBuilder.TILE_SIZE / factor;
-        int height = (worldData.values().stream().map(map -> map.keySet().stream().max(Integer::compareTo).orElse(1)).max(Integer::compareTo).orElse(1) + 2) * WorldBuilder.TILE_SIZE / factor;
-        BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
-        Graphics2D graphics = image.createGraphics();
-        for (Map.Entry<Integer, Map<Integer, Tile>> entry : worldData.entrySet()) {
-            int x = entry.getKey() * WorldBuilder.TILE_SIZE / factor;
-            Map<Integer, Tile> column = entry.getValue();
-            for (Map.Entry<Integer, Tile> entryInner : column.entrySet()) {
-                Function<BufferedImage, BufferedImage> scale = img -> Scalr.resize(img, WorldBuilder.TILE_SIZE / factor, WorldBuilder.TILE_SIZE / factor);
-                int y = entryInner.getKey() * WorldBuilder.TILE_SIZE / factor;
-                Tile tile = entryInner.getValue();
-                if (tile.liquid >= 0) {
-                    graphics.drawImage(scale.apply(LIQUID_TILEMAP.get(tile.liquid)), x, y, null);
-                }
-                if (tile.block >= 0) {
-                    graphics.drawImage(scale.apply(TILEMAP.get(tile.block)), x, y, null);
-                }
-                if (tile.interactable >= 0) {
-                    graphics.drawImage(scale.apply(INTERACTABLE_TILEMAP.get(tile.interactable)), x, y, null);
+    private static BufferedImage generateMinimap() {
+        Integer maxX = WorldBuilder.INSTANCE.getWorldData().keySet().stream().max(Integer::compareTo).orElse(null);
+        Integer maxY = WorldBuilder.INSTANCE.getWorldData().values().stream().flatMap(column -> column.keySet().stream()).max(Integer::compareTo).orElse(null);
+        
+        if (maxX == null || maxY == null) {
+            return null;
+        } else {
+            int tilePixelSize = Math.min((int) (WorldBuilder.WIDTH * 0.9) / maxX, (int) (WorldBuilder.HEIGHT * 0.8) / maxY);
+            BufferedImage map = new BufferedImage((maxX + 1) * tilePixelSize, (maxY + 1) * tilePixelSize, BufferedImage.TYPE_INT_ARGB);
+            for (Map.Entry<Integer, Map<Integer, Tile>> column : WorldBuilder.INSTANCE.getWorldData().entrySet()) {
+                for (Map.Entry<Integer, Tile> row : column.getValue().entrySet()) {
+                    Tile tile = row.getValue();
+                    Point position = new Point(column.getKey() * tilePixelSize, row.getKey() * tilePixelSize);
+                    if (tile.liquid >= 0) {
+                        map.getGraphics().drawImage(OG_LIQUID_TILEMAP.get(tile.liquid), position.x(), position.y(), tilePixelSize, tilePixelSize, null);
+                    }
+                    if (tile.block >= 0) {
+                        map.getGraphics().drawImage(OG_TILEMAP.get(tile.block), position.x(), position.y(), tilePixelSize, tilePixelSize, null);
+                    }
                 }
             }
+            map.getGraphics().dispose();
+            return map;
         }
-        graphics.dispose();
-        return image;
     }
     
-    private void loadTilemaps() {
+    private static void loadTilemaps() {
         load("/tiles/tile", OG_TILEMAP);
         TILEMAP = new ArrayList<>(OG_TILEMAP);
         load("/liquids/liquid", OG_LIQUID_TILEMAP);
@@ -309,10 +302,10 @@ public class Editor extends JFrame {
         INTERACTABLE_TILEMAP = new ArrayList<>(OG_INTERACTABLE_TILEMAP);
     }
     
-    private void load(String fromPath, List<BufferedImage> to) {
+    private static void load(String fromPath, List<BufferedImage> to) {
         for (int i = 0; ; i++) {
             try {
-                InputStream stream = getClass().getResourceAsStream(fromPath + i + ".png");
+                InputStream stream = Editor.class.getResourceAsStream(fromPath + i + ".png");
                 to.add(ImageIO.read(stream));
             } catch (Exception ex) {
                 return;
@@ -481,7 +474,7 @@ public class Editor extends JFrame {
                         }
                     }
                     if (showTileIndices) {
-                        g.setFont(g.getFont().deriveFont(Font.BOLD, 16f * (float) WorldBuilder.TILE_SIZE / 100f));
+                        g.setFont(g.getFont().deriveFont(Font.BOLD, 16f * (float) WorldBuilder.TILE_SIZE / (float) WorldBuilder.OG_TILE_SIZE));
                         String string = i + " | " + j;
                         int stringX = x + (WorldBuilder.TILE_SIZE - g.getFontMetrics().stringWidth(string)) / 2;
                         int stringY = y + WorldBuilder.TILE_SIZE - (WorldBuilder.TILE_SIZE - g.getFontMetrics().getHeight()) / 2;
